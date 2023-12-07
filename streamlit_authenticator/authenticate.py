@@ -16,8 +16,8 @@ class Authenticate:
     This class will create login, logout, register user, reset password, forgot password, 
     forgot username, and modify user details widgets.
     """
-    def __init__(self, credentials: dict, cookie_name: str, key: str, cookie_expiry_days: float=30.0, 
-        preauthorized: list=None, validator: Validator=None,ldapauth: bool=False):
+    def __init__(self , credentials: dict, cookie_name: str, key: str,cookie_expiry_days: float=30.0,
+        preauthorized: list=None, validator: Validator=None,ldapauth: bool=False,domain_name: str="",server: str="",port: str="" ):
         """
         Create a new instance of "Authenticate".
 
@@ -39,6 +39,9 @@ class Authenticate:
         ldapauth: bool
 
         """
+        self.domain_name = domain_name
+        self.server = server
+        self.port = port
         self.credentials = credentials
         self.credentials['usernames'] = {key.lower(): value for key, value in credentials['usernames'].items()}
         self.cookie_name = cookie_name
@@ -48,6 +51,7 @@ class Authenticate:
         self.cookie_manager = stx.CookieManager()
         self.validator = validator if validator is not None else Validator()
         self.ldapauth=ldapauth
+
 
         if 'name' not in st.session_state:
             st.session_state['name'] = None
@@ -230,9 +234,9 @@ class Authenticate:
 
     def _check_pwldap(self,username: str, password: str) -> bool:
 
-        full_username = rf'DOMAIN_NAME\{username}'
+        full_username = rf'{self.domain_name}\{username}'
 
-        s = Server('RDC_SERVER:389', get_info=ALL)
+        s = Server(rf'{self.server}:{self.port}', use_ssl = True, get_info=ALL)
         c = Connection(s, user=full_username, password=password)
 
         if not c.bind():
@@ -240,7 +244,6 @@ class Authenticate:
             return False
         else:
             return True
-
 
     def logout(self, button_name: str, location: str='main', key: str=None):
         """

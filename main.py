@@ -13,7 +13,10 @@ authenticator = stauth.Authenticate(
     config['cookie']['key'],
     config['cookie']['expiry_days'],
     config['preauthorized'],
-    ldapauth=True
+    ldapauth=True,
+    domain_name="",
+    server="",
+    port="",
 )
 
 name, authentication_status, username = authenticator.login('Login', 'main')

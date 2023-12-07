@@ -4,7 +4,7 @@ credentials:
       email: jsmith@gmail.com
       name: Amministratore
       password: $2b$12$w0ZP7pkUxCnwd32pFSZFae3o6dKYkXyOItjGpIKgjHAYU88k2WJQm # To be replaced with hashed password
-    lucadg:
+    user1:
       email: rbriggs@gmail.com
       name: ldg
       password: $2b$12$w0ZP7pkUxCnwd32pFSZFae3o6dKYkXyOItjGpIKgjHAYU88k2WJQm # To be replaced with hashed password
