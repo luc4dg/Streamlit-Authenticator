@@ -3,6 +3,7 @@ import bcrypt
 import streamlit as st
 from datetime import datetime, timedelta
 import extra_streamlit_components as stx
+from ldap3 import Server, Connection, ALL
 
 from .hasher import Hasher
 from .validator import Validator
@@ -15,8 +16,8 @@ class Authenticate:
     This class will create login, logout, register user, reset password, forgot password, 
     forgot username, and modify user details widgets.
     """
-    def __init__(self, credentials: dict, cookie_name: str, key: str, cookie_expiry_days: float=30.0, 
-        preauthorized: list=None, validator: Validator=None):
+    def __init__(self , credentials: dict, cookie_name: str, key: str,cookie_expiry_days: float=30.0,
+        preauthorized: list=None, validator: Validator=None,ldapauth: bool=False,domain_name: str="",server: str="",port: str="" ):
         """
         Create a new instance of "Authenticate".
 
@@ -34,7 +35,13 @@ class Authenticate:
             The list of emails of unregistered users authorized to register.
         validator: Validator
             A Validator object that checks the validity of the username, name, and email fields.
+
+        ldapauth: bool
+
         """
+        self.domain_name = domain_name
+        self.server = server
+        self.port = port
         self.credentials = credentials
         self.credentials['usernames'] = {key.lower(): value for key, value in credentials['usernames'].items()}
         self.cookie_name = cookie_name
@@ -43,6 +50,8 @@ class Authenticate:
         self.preauthorized = preauthorized
         self.cookie_manager = stx.CookieManager()
         self.validator = validator if validator is not None else Validator()
+        self.ldapauth=ldapauth
+
 
         if 'name' not in st.session_state:
             st.session_state['name'] = None
@@ -127,12 +136,17 @@ class Authenticate:
         inplace: bool
             Inplace setting, True: authentication status will be stored in session state, 
             False: authentication status will be returned as bool.
-        Returns
+        Returns bool
+         -------
+        ldapAuth: bool
+        True: authentication based on ldap protocol.
+        False: authentication based on config.yaml.
+        Returns bool
         -------
-        bool
+
             Validity of entered credentials.
         """
-        if self.username in self.credentials['usernames']:
+        if self.username in self.credentials['usernames'] and not self.ldapauth:
             try:
                 if self._check_pw():
                     if inplace:
@@ -151,13 +165,34 @@ class Authenticate:
                         return False
             except Exception as e:
                 print(e)
+
+        elif self.ldapauth:
+            try:
+                if self._check_pwldap(self.username,self.password):
+                    if inplace:
+                        st.session_state['name'] = self.username
+                        self.exp_date = self._set_exp_date()
+                        self.token = self._token_encode()
+                        self.cookie_manager.set(self.cookie_name, self.token,
+                                            expires_at=datetime.now() + timedelta(days=self.cookie_expiry_days))
+                        st.session_state['authentication_status'] = True
+                    else:
+                        return True
+                else:
+                    if inplace:
+                        st.session_state['authentication_status'] = False
+                    else:
+                        return False
+            except Exception as e:
+                print(e)
+
         else:
             if inplace:
                 st.session_state['authentication_status'] = False
             else:
                 return False
 
-    def login(self, form_name: str, location: str='main') -> tuple:
+    def login(self, form_name: str, location: str='main' ) -> tuple:
         """
         Creates a login widget.
 
@@ -196,6 +231,19 @@ class Authenticate:
                     self._check_credentials()
 
         return st.session_state['name'], st.session_state['authentication_status'], st.session_state['username']
+
+    def _check_pwldap(self,username: str, password: str) -> bool:
+
+        full_username = rf'{self.domain_name}\{username}'
+
+        s = Server(rf'{self.server}:{self.port}', use_ssl = True, get_info=ALL)
+        c = Connection(s, user=full_username, password=password)
+
+        if not c.bind():
+            #print('error in bind', c.result)
+            return False
+        else:
+            return True
 
     def logout(self, button_name: str, location: str='main', key: str=None):
         """
